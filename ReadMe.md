@@ -17,20 +17,32 @@ Project 5 - Pricefeed decimal and maths handler. Cuts confusion of maths while c
 Project 6 - create a smart contract which allows other smart contratcs to find sponsors and make their service free. 
 BlockInfer
     - complete transparency about rules of getting sponsors. Contract decides who gets how much sponsorship.
+    - BICoins (BIC) - governanace coins that are rewarded to sponsors according to how much they sponsor. 10 Millions (1 CR) is initial supply.
 Actors - Sponsors, BIContract, Client-Contracts
 Sponsors:
     - check dashboard
+        sees list of contracts/companies that are looking for sponsorship. On clicking individual, they see details. 
+    - check who's gets funds
+        list of contracts who got sponsored through them.
     - allot sponsorship(accepted coins)
+        add funds which will get used for sponsoring various contracts.
+    - governance coins
+        check their BI governance coins.
 Contract
     - collects data for dashboard
     - sends money to ClientContract
     - allows clientcontracts to join the pool
 ClientContracts
     - join pool
+        submit their details for getting sponsors
     - request funds
+        clients can start & pause their reception of funds.
     - send data
+        sends regular data about how funds got used.
+    - deposit stake
+        clients have to deposit soem fund which is kept to control their check.
 
-Dashboard - shows logo, company name, service description. Listing is done according to XYZ-factors(????). Can sponsors decide whom they want to give money? They can decide yes/no on factors, but cannot select individual company. Contract decides whom and how much money gets alloted according to formula. Approval of new client-contract is done by contract. So both Sponsors & client-contract owner fill form, but after that whoel process is Contract driven.  
+Dashboard - shows logo, company name, service description. Listing is done according to XYZ-factors(????). Can sponsors decide whom they want to give money? They can decide yes/no on factors, but cannot select individual company. Contract decides whom and how much money gets alloted according to formula. Approval of new client-contract is done by contract. So both Sponsors & client-contract owner fill form, but after that whole process is Contract driven.  
 
 ---Real-Time funding----
 
@@ -53,3 +65,4 @@ GOVERNANCE TOKEN UTILITY
 
 
 How does C add funds to C-C. 
+
