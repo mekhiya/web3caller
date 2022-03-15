@@ -9,7 +9,9 @@ Custodian Vault to deposit funds and add watchers.
 - if withdraw request comes on a deposit, it's watchers are sent 0.0000911
 - depositor can submit withdraw request anytime
 - after withdraw request money stays in lock for 9 days.
+- on completion of 9th day, once again alert is sent to all watchers. This time 0.0000912
 - after 9th day, money can be transferred by owner to his same account.
+
 
 
 Future :
