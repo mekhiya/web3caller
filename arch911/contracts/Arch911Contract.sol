@@ -17,14 +17,18 @@ contract Arch911Contract is Ownable {
     // get911Status() called twice daily from external method/contract/ui
 
     //function depositFund()
+    uint256 public numOfDeposits;
+    uint256 public numOfUinqueDepositors;
+    uint256 public totalDepositValue;
+    uint256 public numberOfWatch;
 
-    address[] public depositors;
-    address[] public watchers;
+    //address[] public depositors;
+    //address[] public watchers;
     uint256 numberOfDaysForMaturity = 9;
 
     struct Deposit {
-        uint256 txNumber;
-        address funderAddress;
+        uint256 depositId;
+        address depositorAddress;
         uint256 amount;
         uint256 creationTime;
         uint256 maturityTime;
@@ -32,14 +36,39 @@ contract Arch911Contract is Ownable {
 
     mapping(address => Deposit[]) ownerOfDeposits;
 
-    struct Watcher {
-        uint256 txNumber;
+    struct Watch {
+        address depositorAddress;
         address watcherAddress;
-        uint256 creationTime;
+        uint256 watchCreationTime;
     }
 
-    mapping(uint256 => Watcher[]) txToWatchers;
+    //creationTime => Watch
+    mapping(uint256 => Watch[]) depositToWatches;
 
+    function getVaultDetails()
+        public
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return (
+            numOfDeposits,
+            numOfUinqueDepositors,
+            totalDepositValue,
+            numberOfWatch
+        );
+    }
+
+    //0.00091 ETH watcher fees
+    //910000000000000 WEI
+    //Example : amount = 0.1 eth
+    //total = 0.10091 ETH
+    // total 100910000000000000 wei
+    //FRONTEND UI automatically adds 0.00091 ETH watcher fees to deposit amount
     function addDeposit() public payable {
         //function will be called by depositor
         //amount sent will be amount + 0.00911
@@ -47,41 +76,69 @@ contract Arch911Contract is Ownable {
         //create depositor entry
         //create watcher entry
 
+        uint256 _depositId = uint256(
+            keccak256(abi.encodePacked(block.timestamp, msg.sender))
+        );
+
         uint256 _amount = msg.value;
         address _funderAddress = msg.sender;
-        uint256 _tx = uint256(1); // get tx number of money transfer hwo to get tx in advance.
-        //if tx not available, use generate randomnumber+timestamp
 
         ownerOfDeposits[_funderAddress].push(
             Deposit(
-                _tx,
+                _depositId,
                 _funderAddress,
                 _amount,
                 block.timestamp,
                 block.timestamp
             )
         );
+        //if length is 1, it means this is a new depositor
+        if (ownerOfDeposits[_funderAddress].length == 1) {
+            // this is a new Depositor, creating deposit for the first time
+            numOfUinqueDepositors = numOfUinqueDepositors + 1;
+        }
+        numOfDeposits = numOfDeposits + 1;
+        totalDepositValue = totalDepositValue + _amount;
 
-        depositors.push(_funderAddress); // is this required????
-        //addressToDepositTx[_funderAddress] = _tx;
+        //adds watcher for Deposit creator (watch for depositor himself)
+        depositToWatches[_depositId].push(
+            Watch(msg.sender, msg.sender, block.timestamp)
+        );
+        numberOfWatch = numberOfWatch + 1;
     }
 
-    //adds watcher for transations
-    function addWatcher(uint256 _tx, address _watcherAddress) public {
-        txToWatchers[_tx].push(Watcher(_tx, _watcherAddress, block.timestamp));
-        watchers.push(_watcherAddress); // is this required????
+    //adds watcher for anyone on any deposit by charging 0.00091 ETH (910000000000000 wei)
+    function addWatcher(address _depositorAddress, uint256 _depositId)
+        public
+        payable
+    {
+        require(
+            msg.value >= 910000000000000,
+            "0.00091 ETH required to create Watch"
+        );
+
+        (bool depositExists, ) = getDepositIndex(_depositId, _depositorAddress);
+        require(depositExists, "No Deposits exists for address!");
+
+        depositToWatches[_depositId].push(
+            Watch(_depositorAddress, msg.sender, block.timestamp)
+        );
+        numberOfWatch = numberOfWatch + 1;
     }
 
-    //finds deposit
-    function getDepositIndex(address _funderAddress, uint256 _tx)
+    //finds depositIndex
+    // returns true & index position
+    function getDepositIndex(uint256 _depositId, address _depositorAddress)
         public
         view
         returns (bool, uint256)
     {
-        //Deposit memory deposit;
-        uint256 numOfDeposits = getDepositCounts(_funderAddress);
-        for (uint256 index = 0; index < numOfDeposits; index++) {
-            if (ownerOfDeposits[_funderAddress][index].txNumber == _tx) {
+        uint256 numOfDepositsByUser = ownerOfDeposits[_depositorAddress].length;
+        for (uint256 index = 0; index < numOfDepositsByUser; index++) {
+            if (
+                ownerOfDeposits[_depositorAddress][index].depositId ==
+                _depositId
+            ) {
                 return (true, index);
             }
         }
@@ -89,6 +146,7 @@ contract Arch911Contract is Ownable {
         return (false, 0);
     }
 
+    //Not used but still kept it
     //this will help in finding all deposits created by address
     function getDepositCounts(address _funderAddress)
         public
@@ -98,17 +156,17 @@ contract Arch911Contract is Ownable {
         return ownerOfDeposits[_funderAddress].length;
     }
 
-    function submitWithdrawRequest(uint256 _tx) public {
+    function submitWithdrawRequest(uint256 _depositId) public {
         // ???? moves tx details to withdraw list with time required
 
         (bool depositFound, uint256 _depositIndex) = getDepositIndex(
-            msg.sender,
-            _tx
+            _depositId,
+            msg.sender
         );
         require(depositFound, "Deposit not found!");
         //Below require is redundant but still important to keep check
         require(
-            ownerOfDeposits[msg.sender][_depositIndex].funderAddress ==
+            ownerOfDeposits[msg.sender][_depositIndex].depositorAddress ==
                 msg.sender,
             "Not authorised!"
         );
@@ -124,15 +182,15 @@ contract Arch911Contract is Ownable {
             .maturityTime = newMaturityTime;
     }
 
-    function withdraw(uint256 _tx) public {
+    function withdraw(uint256 _depositId) public {
         (bool depositFound, uint256 _depositIndex) = getDepositIndex(
-            msg.sender,
-            _tx
+            _depositId,
+            msg.sender
         );
         require(depositFound, "Deposit not found!");
         //Below require is redundant but still important to keep check
         require(
-            ownerOfDeposits[msg.sender][_depositIndex].funderAddress ==
+            ownerOfDeposits[msg.sender][_depositIndex].depositorAddress ==
                 msg.sender,
             "Not authorised!"
         );
@@ -146,19 +204,32 @@ contract Arch911Contract is Ownable {
                 ownerOfDeposits[msg.sender][_depositIndex].maturityTime,
             "Deposit withdraw maturity not achieved yet!"
         );
-        uint256 amountToTransfer = ownerOfDeposits[msg.sender][_depositIndex]
+        uint256 _amountToTransfer = ownerOfDeposits[msg.sender][_depositIndex]
             .amount;
-        payable(msg.sender).transfer(amountToTransfer);
-
-        // payable(msg.sender).transfer(etherBalanceOf[msg.sender])
-
-        //is this right way to wipe???
-
-        //ownerOfDeposits(msg.sender, _index) = new Deposit();
+        payable(msg.sender).transfer(_amountToTransfer);
 
         // PENDING
         // check for minimum 10 dollars deposit
         //sender all watchers 0.000912
         //clean all mappings for funders & watchers
+
+        numOfDeposits = numOfDeposits - 1;
+        totalDepositValue = totalDepositValue - _amountToTransfer;
+    }
+
+    function getDepositsByOwner(address _depositorAddress)
+        public
+        view
+        returns (Deposit[] memory)
+    {
+        return ownerOfDeposits[_depositorAddress];
+    }
+
+    function getWatchesOnDeposit(uint256 _depositId)
+        public
+        view
+        returns (Watch[] memory)
+    {
+        return depositToWatches[_depositId];
     }
 }
