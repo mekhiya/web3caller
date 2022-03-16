@@ -73,22 +73,20 @@ contract Arch911Contract is Ownable {
     }
 
     //finds deposit
-    function getDepositDetails(address _funderAddress, uint256 _tx)
+    function getDepositIndex(address _funderAddress, uint256 _tx)
         public
-        returns (Deposit memory, uint256)
+        view
+        returns (bool, uint256)
     {
-        Deposit memory deposit;
+        //Deposit memory deposit;
         uint256 numOfDeposits = getDepositCounts(_funderAddress);
         for (uint256 index = 0; index < numOfDeposits; index++) {
-            //deposit = ownerOfDeposits(_funderAddress, index);
-            deposit = ownerOfDeposits[_funderAddress][index];
-            if (deposit.txNumber == _tx) {
-                return (deposit, index);
+            if (ownerOfDeposits[_funderAddress][index].txNumber == _tx) {
+                return (true, index);
             }
         }
         //fix this, looks incorrect
-        uint256 number = 1234;
-        return (deposit, number);
+        return (false, 0);
     }
 
     //this will help in finding all deposits created by address
@@ -102,48 +100,54 @@ contract Arch911Contract is Ownable {
 
     function submitWithdrawRequest(uint256 _tx) public {
         // ???? moves tx details to withdraw list with time required
-        // maturityTime = now + (numberOfDays * 1 days);
 
-        //instead get index number in deposit[] and then use
-        //something like (address)(index) to dierectly work on block data
-        (Deposit memory deposit, uint256 _index) = getDepositDetails(
+        (bool depositFound, uint256 _depositIndex) = getDepositIndex(
             msg.sender,
             _tx
         );
+        require(depositFound, "Deposit not found!");
         //Below require is redundant but still important to keep check
-        require(deposit.funderAddress == msg.sender, "Not authorised!");
         require(
-            deposit.creationTime == deposit.maturityTime,
+            ownerOfDeposits[msg.sender][_depositIndex].funderAddress ==
+                msg.sender,
+            "Not authorised!"
+        );
+        require(
+            ownerOfDeposits[msg.sender][_depositIndex].creationTime ==
+                ownerOfDeposits[msg.sender][_depositIndex].maturityTime,
             "Deposit withdraw already submitted!"
         );
 
-        // ??? does this write/change value in block ??? or is in memory
-
-        // deposit.maturityTime =
-        //     block.timestamp +
-        //     (numberOfDaysForMaturity * 1 days);
-
-        // ownerOfDeposits(msg.sender, _index).maturityTime =
-        //     block.timestamp +
-        //     (numberOfDaysForMaturity * 1 days);
+        uint256 newMaturityTime = block.timestamp +
+            (numberOfDaysForMaturity * 1 days);
+        ownerOfDeposits[msg.sender][_depositIndex]
+            .maturityTime = newMaturityTime;
     }
 
     function withdraw(uint256 _tx) public {
-        (Deposit memory deposit, uint256 _index) = getDepositDetails(
+        (bool depositFound, uint256 _depositIndex) = getDepositIndex(
             msg.sender,
             _tx
         );
+        require(depositFound, "Deposit not found!");
         //Below require is redundant but still important to keep check
-        require(deposit.funderAddress == msg.sender, "Not authorised!");
         require(
-            deposit.creationTime != deposit.maturityTime,
+            ownerOfDeposits[msg.sender][_depositIndex].funderAddress ==
+                msg.sender,
+            "Not authorised!"
+        );
+        require(
+            ownerOfDeposits[msg.sender][_depositIndex].creationTime !=
+                ownerOfDeposits[msg.sender][_depositIndex].maturityTime,
             "Deposit withdraw request not submitted!"
         );
         require(
-            block.timestamp >= deposit.maturityTime,
+            block.timestamp >=
+                ownerOfDeposits[msg.sender][_depositIndex].maturityTime,
             "Deposit withdraw maturity not achieved yet!"
         );
-        uint256 amountToTransfer = deposit.amount;
+        uint256 amountToTransfer = ownerOfDeposits[msg.sender][_depositIndex]
+            .amount;
         payable(msg.sender).transfer(amountToTransfer);
 
         // payable(msg.sender).transfer(etherBalanceOf[msg.sender])
