@@ -22,9 +22,13 @@ contract Arch911Contract is Ownable {
     uint256 public totalVaultValue;
     uint256 public totalDepositValue;
     uint256 public numberOfWatch;
+    //0.00091 ETH watcher fees
+    //911000000000000 WEI
+    uint256 public watchCreationFees = 911000000000000;
+    //0.000091 Alert amount (1/10th of watchCreationFees)
+    //91100000000000 WEI
+    //uint256 public alertAmount = watchCreationFees / 10;
 
-    //address[] public depositors;
-    //address[] public watchers;
     //uint256 maturityTimePostRedemption = 9 days;
     uint256 maturityTimePostRedemption = 120 seconds;
 
@@ -47,6 +51,12 @@ contract Arch911Contract is Ownable {
     //creationTime => Watch
     mapping(uint256 => Watch[]) depositToWatches;
 
+    AggregatorV3Interface public priceFeed;
+
+    constructor(address _priceFeed) {
+        priceFeed = AggregatorV3Interface(_priceFeed);
+    }
+
     function getVaultDetails()
         public
         view
@@ -66,17 +76,14 @@ contract Arch911Contract is Ownable {
     }
 
     //0.00091 ETH watcher fees
-    //910000000000000 WEI
+    //911000000000000 WEI
     //Example : amount = 0.1 eth
     //total = 0.10091 ETH
-    // total 100910000000000000 wei
+    // total 100911000000000000 wei
     //FRONTEND UI automatically adds 0.00091 ETH watcher fees to deposit amount
     function addDeposit() public payable {
         //function will be called by depositor
-        //amount sent will be amount + 0.00911
-
-        //create depositor entry
-        //create watcher entry
+        //amount sent will be 'deposit amount' + 0.00911
 
         uint256 _depositId = uint256(
             keccak256(abi.encodePacked(block.timestamp, msg.sender))
@@ -110,13 +117,14 @@ contract Arch911Contract is Ownable {
         numberOfWatch++;
     }
 
-    //adds watcher for anyone on any deposit by charging 0.00091 ETH (910000000000000 wei)
-    function addWatcher(address _depositorAddress, uint256 _depositId)
+    //adds watcher for anyone on any deposit by charging 0.00091 ETH (911000000000000 wei)
+    function addWatcher(uint256 _depositId, address _depositorAddress)
         public
         payable
     {
+        //msg.value >= 911000000000000
         require(
-            msg.value >= 910000000000000,
+            msg.value >= watchCreationFees,
             "0.00091 ETH required to create Watch"
         );
 
@@ -181,6 +189,11 @@ contract Arch911Contract is Ownable {
         uint256 newMaturityTime = block.timestamp + maturityTimePostRedemption;
         ownerOfDeposits[msg.sender][_depositIndex]
             .maturityTime = newMaturityTime;
+
+        alertWatchers(
+            false,
+            ownerOfDeposits[msg.sender][_depositIndex].depositId
+        );
     }
 
     function withdraw(uint256 _depositId) public {
@@ -220,12 +233,34 @@ contract Arch911Contract is Ownable {
 
         // PENDING
         // check for minimum 10 dollars deposit
-        // sender all watchers 0.000912
-        // clean all mappings for funders & watchers
 
         numOfDeposits--;
         totalDepositValue -= _amountToTransfer;
         totalVaultValue -= _amountToTransfer;
+
+        alertWatchers(true, removeDeposit.depositId);
+    }
+
+    function alertWatchers(bool _isFinalAlert, uint256 _depositId) public {
+        //to all deposits for deposiId send alert.
+        //if _isFinalAlert, remove watch[] for same & udpate numOfWatchs
+        uint256 numOfWatchsForDepositId = depositToWatches[_depositId].length;
+
+        if (depositToWatches[_depositId].length > 0) {
+            for (uint256 index = 0; index < numOfWatchsForDepositId; index++) {
+                uint256 lastIndex = numOfWatchsForDepositId - index - 1;
+                address _watcherAddress = depositToWatches[_depositId][
+                    lastIndex
+                ].watcherAddress;
+
+                payable(_watcherAddress).transfer(watchCreationFees / 10);
+                if (_isFinalAlert) {
+                    //we delete watch when alert sent during Withdraw method & not submitwithdraw method
+                    depositToWatches[_depositId].pop();
+                    numberOfWatch--;
+                }
+            }
+        }
     }
 
     function getDepositsByOwner(address _depositorAddress)

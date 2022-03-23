@@ -16,3 +16,7 @@ Custodian Vault to deposit funds and add watchers.
 
 Future :
 Create a NFT like certificate which checks status regularly.
+
+Verified Contract on Kovan
+Arch911Contract deployed at: 0xE0C20f1e5015FD7DE221Bb29Dfc9aa25DA5988D0
+0xE0C20f1e5015FD7DE221Bb29Dfc9aa25DA5988D0
