@@ -18,7 +18,8 @@ contract Arch911Contract is Ownable {
 
     //function depositFund()
     uint256 public numOfDeposits;
-    uint256 public numOfUinqueDepositors;
+    uint256 public numOfUniqueDepositors;
+    uint256 public totalVaultValue;
     uint256 public totalDepositValue;
     uint256 public numberOfWatch;
 
@@ -58,7 +59,7 @@ contract Arch911Contract is Ownable {
     {
         return (
             numOfDeposits,
-            numOfUinqueDepositors,
+            numOfUniqueDepositors,
             totalDepositValue,
             numberOfWatch
         );
@@ -96,16 +97,17 @@ contract Arch911Contract is Ownable {
         //if length is 1, it means this is a new depositor
         if (ownerOfDeposits[_funderAddress].length == 1) {
             // this is a new Depositor, creating deposit for the first time
-            numOfUinqueDepositors = numOfUinqueDepositors + 1;
+            numOfUniqueDepositors++;
         }
-        numOfDeposits = numOfDeposits + 1;
-        totalDepositValue = totalDepositValue + _amount;
+        numOfDeposits++;
+        totalDepositValue += _amount;
+        totalVaultValue += _amount;
 
         //adds watcher for Deposit creator (watch for depositor himself)
         depositToWatches[_depositId].push(
             Watch(msg.sender, msg.sender, block.timestamp)
         );
-        numberOfWatch = numberOfWatch + 1;
+        numberOfWatch++;
     }
 
     //adds watcher for anyone on any deposit by charging 0.00091 ETH (910000000000000 wei)
@@ -118,21 +120,30 @@ contract Arch911Contract is Ownable {
             "0.00091 ETH required to create Watch"
         );
 
-        (bool depositExists, ,) = getDepositIndex(_depositId, _depositorAddress);
+        (bool depositExists, , ) = getDepositIndex(
+            _depositId,
+            _depositorAddress
+        );
         require(depositExists, "No Deposits exists for address!");
 
         depositToWatches[_depositId].push(
             Watch(_depositorAddress, msg.sender, block.timestamp)
         );
         numberOfWatch = numberOfWatch + 1;
+        totalVaultValue = totalVaultValue + msg.value;
     }
 
     //finds depositIndex
+    // Result only for msg.Sender
     // returns true if deposit exists, index position, numOfDepositsByUser
     function getDepositIndex(uint256 _depositId, address _depositorAddress)
         public
         view
-        returns (bool, uint256, uint256)
+        returns (
+            bool,
+            uint256,
+            uint256
+        )
     {
         uint256 numOfDepositsByUser = ownerOfDeposits[_depositorAddress].length;
         for (uint256 index = 0; index < numOfDepositsByUser; index++) {
@@ -173,10 +184,11 @@ contract Arch911Contract is Ownable {
     }
 
     function withdraw(uint256 _depositId) public {
-        (bool depositFound, uint256 _depositIndex, uint256 _numOfDepositsByUser) = getDepositIndex(
-            _depositId,
-            msg.sender
-        );
+        (
+            bool depositFound,
+            uint256 _depositIndex,
+            uint256 _numOfDepositsByUser
+        ) = getDepositIndex(_depositId, msg.sender);
         require(depositFound, "Deposit not found!");
         //Below require is redundant but still important to keep check
         require(
@@ -200,19 +212,20 @@ contract Arch911Contract is Ownable {
 
         Deposit memory removeDeposit;
         removeDeposit = ownerOfDeposits[msg.sender][_depositIndex];
-        ownerOfDeposits[msg.sender][_depositIndex] = ownerOfDeposits[msg.sender][_numOfDepositsByUser - 1];
-        ownerOfDeposits[msg.sender][_numOfDepositsByUser - 1] = removeDeposit; 
+        ownerOfDeposits[msg.sender][_depositIndex] = ownerOfDeposits[
+            msg.sender
+        ][_numOfDepositsByUser - 1];
+        ownerOfDeposits[msg.sender][_numOfDepositsByUser - 1] = removeDeposit;
         ownerOfDeposits[msg.sender].pop();
-        
+
         // PENDING
         // check for minimum 10 dollars deposit
         // sender all watchers 0.000912
         // clean all mappings for funders & watchers
 
-
-
-        numOfDeposits = numOfDeposits - 1;
-        totalDepositValue = totalDepositValue - _amountToTransfer;
+        numOfDeposits--;
+        totalDepositValue -= _amountToTransfer;
+        totalVaultValue -= _amountToTransfer;
     }
 
     function getDepositsByOwner(address _depositorAddress)
