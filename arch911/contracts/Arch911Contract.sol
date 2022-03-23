@@ -24,7 +24,8 @@ contract Arch911Contract is Ownable {
 
     //address[] public depositors;
     //address[] public watchers;
-    uint256 numberOfDaysForMaturity = 9;
+    //uint256 maturityTimePostRedemption = 9 days;
+    uint256 maturityTimePostRedemption = 120 seconds;
 
     struct Deposit {
         uint256 depositId;
@@ -117,7 +118,7 @@ contract Arch911Contract is Ownable {
             "0.00091 ETH required to create Watch"
         );
 
-        (bool depositExists, ) = getDepositIndex(_depositId, _depositorAddress);
+        (bool depositExists, ,) = getDepositIndex(_depositId, _depositorAddress);
         require(depositExists, "No Deposits exists for address!");
 
         depositToWatches[_depositId].push(
@@ -127,11 +128,11 @@ contract Arch911Contract is Ownable {
     }
 
     //finds depositIndex
-    // returns true & index position
+    // returns true if deposit exists, index position, numOfDepositsByUser
     function getDepositIndex(uint256 _depositId, address _depositorAddress)
         public
         view
-        returns (bool, uint256)
+        returns (bool, uint256, uint256)
     {
         uint256 numOfDepositsByUser = ownerOfDeposits[_depositorAddress].length;
         for (uint256 index = 0; index < numOfDepositsByUser; index++) {
@@ -139,27 +140,17 @@ contract Arch911Contract is Ownable {
                 ownerOfDeposits[_depositorAddress][index].depositId ==
                 _depositId
             ) {
-                return (true, index);
+                return (true, index, numOfDepositsByUser);
             }
         }
         //fix this, looks incorrect
-        return (false, 0);
-    }
-
-    //Not used but still kept it
-    //this will help in finding all deposits created by address
-    function getDepositCounts(address _funderAddress)
-        public
-        view
-        returns (uint256)
-    {
-        return ownerOfDeposits[_funderAddress].length;
+        return (false, 0, numOfDepositsByUser);
     }
 
     function submitWithdrawRequest(uint256 _depositId) public {
         // ???? moves tx details to withdraw list with time required
 
-        (bool depositFound, uint256 _depositIndex) = getDepositIndex(
+        (bool depositFound, uint256 _depositIndex, ) = getDepositIndex(
             _depositId,
             msg.sender
         );
@@ -176,14 +167,13 @@ contract Arch911Contract is Ownable {
             "Deposit withdraw already submitted!"
         );
 
-        uint256 newMaturityTime = block.timestamp +
-            (numberOfDaysForMaturity * 1 days);
+        uint256 newMaturityTime = block.timestamp + maturityTimePostRedemption;
         ownerOfDeposits[msg.sender][_depositIndex]
             .maturityTime = newMaturityTime;
     }
 
     function withdraw(uint256 _depositId) public {
-        (bool depositFound, uint256 _depositIndex) = getDepositIndex(
+        (bool depositFound, uint256 _depositIndex, uint256 _numOfDepositsByUser) = getDepositIndex(
             _depositId,
             msg.sender
         );
@@ -208,10 +198,18 @@ contract Arch911Contract is Ownable {
             .amount;
         payable(msg.sender).transfer(_amountToTransfer);
 
+        Deposit memory removeDeposit;
+        removeDeposit = ownerOfDeposits[msg.sender][_depositIndex];
+        ownerOfDeposits[msg.sender][_depositIndex] = ownerOfDeposits[msg.sender][_numOfDepositsByUser - 1];
+        ownerOfDeposits[msg.sender][_numOfDepositsByUser - 1] = removeDeposit; 
+        ownerOfDeposits[msg.sender].pop();
+        
         // PENDING
         // check for minimum 10 dollars deposit
-        //sender all watchers 0.000912
-        //clean all mappings for funders & watchers
+        // sender all watchers 0.000912
+        // clean all mappings for funders & watchers
+
+
 
         numOfDeposits = numOfDeposits - 1;
         totalDepositValue = totalDepositValue - _amountToTransfer;
