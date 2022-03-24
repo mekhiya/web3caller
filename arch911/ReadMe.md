@@ -19,4 +19,6 @@ Create a NFT like certificate which checks status regularly.
 
 Verified Contract on Kovan
 Arch911Contract deployed at: 0xE0C20f1e5015FD7DE221Bb29Dfc9aa25DA5988D0
-0xE0C20f1e5015FD7DE221Bb29Dfc9aa25DA5988D0
+
+Verified Contract on polygon-testnet
+0x71B8344C45704060D44834dCb327122aC6F206E7
